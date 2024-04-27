@@ -4,18 +4,18 @@ import pathlib from "path";
 import { PNG } from "pngjs";
 import sharp from "sharp";
 
-type LayerInfo = {
+export type LayerInfo = {
     category: string;
     attribute: string;
     name: string;
     path: string;
 };
 
-function isValidName(name: string) {
+export function isValidName(name: string) {
     return !!parseName(name);
 }
 
-function parsePath(path: string): LayerInfo | null {
+export function parsePath(path: string): LayerInfo | null {
     const parsed = pathlib.parse(path);
     const info = parseName(parsed.name);
     if (!info) {
@@ -35,7 +35,7 @@ function parseName(name: string) {
     return { category, attribute, name };
 }
 
-function traversePsd({
+export function traversePsd({
     parent,
     visitLayer,
     visitGroup,
@@ -77,7 +77,7 @@ function getLayersByCategory(layers: LayerInfo[]) {
     return layersByCategory;
 }
 
-async function writeLayer(outPath: string, layer: Layer) {
+export async function writeLayer(outPath: string, layer: Layer) {
     console.log(`Rendering ${layer.name} to ${outPath}`);
 
     const pixels = await layer.composite();
@@ -90,40 +90,7 @@ async function writeLayer(outPath: string, layer: Layer) {
     png.pack().pipe(fs.createWriteStream(outPath));
 }
 
-export async function extractLayers(path: string, outdir: string) {
-    const psdData = fs.readFileSync(path);
-    const psdFile = Psd.parse(psdData.buffer);
-
-    traversePsd({
-        parent: psdFile,
-        visitLayer: (layer) => {
-            const { name } = layer;
-            if (isValidName(name)) {
-                const outPath = pathlib.join(outdir, `${name}.png`);
-                writeLayer(outPath, layer).catch((err) =>
-                    console.error("Failed to write layer.", name, err),
-                );
-            } else {
-                console.warn("Invalid name, skipping.", name);
-            }
-        },
-    });
-}
-
-export async function inspectPsd(path: string) {
-    const psdData = fs.readFileSync(path);
-    const psdFile = Psd.parse(psdData.buffer);
-
-    traversePsd({
-        parent: psdFile,
-        visitLayer: (layer) => {
-            const { name } = layer;
-            console.log(name);
-        },
-    });
-}
-
-function permutateLayers(layers: LayerInfo[]) {
+export function permutateLayers(layers: LayerInfo[]) {
     const layersByCategory = getLayersByCategory(layers);
 
     const combos: LayerInfo[][] = [];
@@ -151,26 +118,7 @@ function permutateLayers(layers: LayerInfo[]) {
     return combos;
 }
 
-export async function compositePermutations(inPath: string, outDir: string) {
-    const layers: LayerInfo[] = [];
-    const paths = fs.readdirSync(inPath);
-    for (const path of paths) {
-        const layer = parsePath(path);
-        if (layer !== null) {
-            layers.push(layer);
-        } else {
-            console.error(`Failed to parse path: ${path}`);
-            return;
-        }
-    }
-
-    const combos = permutateLayers(layers);
-    for (const combo of combos) {
-        await writeComposite(outDir, combo);
-    }
-}
-
-async function writeComposite(outDir: string, layers: LayerInfo[]) {
+export async function writeComposite(outDir: string, layers: LayerInfo[]) {
     const outPath =
         pathlib.join(outDir, layers.map((info) => info.attribute).join(" ")) + ".png";
 

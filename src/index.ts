@@ -2,7 +2,7 @@ import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
 
 import fs from "fs";
-import { compositePermutations, extractLayers, inspectPsd } from "./api";
+import { composite, extract, inspect } from "./api/cli";
 
 function check(checkResults: Record<string, string | null>) {
     for (const [name, reason] of Object.entries(checkResults)) {
@@ -58,7 +58,7 @@ yargs(hideBin(process.argv))
                 );
         },
         ({ path }) => {
-            inspectPsd(path);
+            inspect(path);
         },
     )
     .command(
@@ -84,7 +84,7 @@ yargs(hideBin(process.argv))
                 );
         },
         ({ inPath, outPath }) => {
-            extractLayers(inPath, outPath);
+            extract(inPath, outPath);
         },
     )
     .command(
@@ -110,7 +110,7 @@ yargs(hideBin(process.argv))
                 );
         },
         ({ inPath, outPath }) => {
-            compositePermutations(inPath, outPath);
+            composite(inPath, outPath);
         },
     )
     .demandCommand()
