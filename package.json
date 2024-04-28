@@ -2,9 +2,12 @@
   "name": "cli-ts",
   "version": "1.0.0",
   "description": "",
+  "main": "dist/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "esbuild src/index.ts --bundle --platform=node --outdir=dist --format=cjs"
+    "build": "esbuild src/index.ts --bundle --platform=node --outdir=dist --format=cjs --sourcemap",
+    "precli": "npm run build",
+    "cli": "node --enable-source-maps ."
   },
   "keywords": [],
   "author": "",
