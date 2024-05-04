@@ -1,9 +1,11 @@
-import Psd from "@webtoon/psd";
+import Psd, { Layer } from "@webtoon/psd";
 import fs from "fs";
 import pathlib from "path";
 import {
     LayerInfo,
+    buildHTMLIndex,
     isValidName,
+    parentNames,
     parsePath,
     permutateLayers,
     traversePsd,
@@ -30,21 +32,37 @@ export async function composite(inPath: string, outDir: string) {
     }
 }
 
-export async function extract(path: string, outdir: string) {
+export function getLayerName(layer: Layer) {
+    return [...parentNames(layer), layer.name].join(" :: ");
+}
+
+export async function writeIndex(inDir: string, outPath: string) {
+    const paths = fs.readdirSync(inDir);
+    const layers = paths
+        .map((path) => pathlib.join(".", inDir, path))
+        .flatMap((path) => parsePath(path) ?? []);
+    const html = buildHTMLIndex(layers);
+
+    fs.writeFileSync(outPath, html);
+}
+
+export async function extract(path: string, outDir: string) {
     const psdData = fs.readFileSync(path);
     const psdFile = Psd.parse(psdData.buffer);
+    const imagePaths: string[] = [];
 
     traversePsd({
         parent: psdFile,
         visitLayer: (layer) => {
-            const { name } = layer;
+            const name = getLayerName(layer);
             if (isValidName(name)) {
-                const outPath = pathlib.join(outdir, `${name}.png`);
+                const outPath = pathlib.join(outDir, `${name}.png`);
+                imagePaths.push(outPath);
                 writeLayer(outPath, layer).catch((err) =>
                     console.error("Failed to write layer.", name, err),
                 );
             } else {
-                console.warn("Invalid name, skipping.", name);
+                console.warn("Invalid layer hierarchy, skipping.", name);
             }
         },
     });
@@ -57,8 +75,7 @@ export async function inspect(path: string) {
     traversePsd({
         parent: psdFile,
         visitLayer: (layer) => {
-            const { name } = layer;
-            console.log(name);
+            console.log(getLayerName(layer));
         },
     });
 }

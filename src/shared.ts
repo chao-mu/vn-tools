@@ -1,5 +1,6 @@
 import Psd, { type Group, type Layer, type Node } from "@webtoon/psd";
 import fs from "fs";
+import htmlCreator from "html-creator";
 import pathlib from "path";
 import { PNG } from "pngjs";
 import sharp from "sharp";
@@ -26,7 +27,7 @@ export function parsePath(path: string): LayerInfo | null {
 }
 
 function parseName(name: string) {
-    const [, category, attribute] = /^(.*?)\s+-\s+(.*)$/.exec(name) ?? [];
+    const [, category, attribute] = /^(.*?)\s+::\s+(.*)$/.exec(name) ?? [];
 
     if (!category || !attribute) {
         return null;
@@ -49,14 +50,12 @@ export function traversePsd({
     const layers: Record<string, LayerInfo> = {};
     const errors: Record<string, string> = {};
     function traverseNode(node: Node) {
-        if (node.type === "Layer" && visitLayer) {
-            visitLayer(node);
-        } else if (node.type === "Group" && visitGroup) {
-            visitGroup(node);
-        } else if (node.type === "Psd" && visitPsd) {
-            visitPsd(node);
-        } else {
-            console.error(`Unsupported node type: `, node.type);
+        if (node.type === "Layer") {
+            visitLayer?.(node);
+        } else if (node.type === "Group") {
+            visitGroup?.(node);
+        } else if (node.type === "Psd") {
+            visitPsd?.(node);
         }
 
         node.children?.forEach((child) => traverseNode(child));
@@ -132,4 +131,61 @@ export async function writeComposite(outDir: string, layers: LayerInfo[]) {
     await sharp(backgroundLayer.path)
         .composite(layers.map((layer) => ({ input: layer.path, blend: "multiply" })))
         .toFile(outPath);
+}
+
+export function parentNames(node: Node): string[] {
+    const parent = node.parent;
+    if (!parent || parent.type === "Psd") {
+        return [];
+    }
+
+    return parentNames(parent).concat([parent.name]);
+}
+
+export function buildHTMLIndex(layers: LayerInfo[]) {
+    const LayerDetails = ({ name }: LayerInfo) => ({
+        type: "span",
+        //content: `Posture: ${category}. Attribute: ${attribute}`,
+        content: name,
+    });
+    const Image = (path: string) => ({
+        type: "img",
+        attributes: { src: path, width: 100, height: 100 },
+    });
+
+    const html = new htmlCreator([
+        {
+            type: "head",
+            content: [
+                {
+                    type: "title",
+                    content: "Generated HTML",
+                },
+                {
+                    type: "style",
+                    content: `
+                img {
+                  max-width: 100%;
+                  height: auto;
+                }
+        `,
+                },
+            ],
+        },
+        {
+            type: "body",
+            attributes: {
+                style: "display: grid; grid-template-columns: repeat( auto-fit, minmax(250px, 1fr) ); gap: 1rem;",
+            },
+            content: layers.map((layer) => ({
+                type: "div",
+                attributes: {
+                    style: "border: solid; align-items: center; display: flex; flex-direction: column; padding: 0.5rem;",
+                },
+                content: [LayerDetails(layer), Image(layer.path)],
+            })),
+        },
+    ]);
+
+    return html.renderHTML();
 }

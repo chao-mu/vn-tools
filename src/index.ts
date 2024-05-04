@@ -2,7 +2,7 @@ import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
 
 import fs from "fs";
-import { composite, extract, inspect } from "./api/cli";
+import { composite, extract, inspect, writeIndex } from "./api/cli";
 
 function check(checkResults: Record<string, string | null>) {
     for (const [name, reason] of Object.entries(checkResults)) {
@@ -59,6 +59,31 @@ yargs(hideBin(process.argv))
         },
         ({ path }) => {
             inspect(path);
+        },
+    )
+    .command(
+        "build-index <inPath> <outPath>",
+        "Build an index from the directory of images",
+        (yargs) => {
+            return yargs
+                .positional("inPath", {
+                    describe: "The images directory",
+                    demandOption: true,
+                    type: "string",
+                })
+                .positional("outPath", {
+                    describe: "The path where you want to write the index file",
+                    type: "string",
+                    default: "index.html",
+                })
+                .check(({ inPath }) =>
+                    check({
+                        inPath: checkDir(inPath),
+                    }),
+                );
+        },
+        ({ inPath, outPath }) => {
+            writeIndex(inPath, outPath);
         },
     )
     .command(
