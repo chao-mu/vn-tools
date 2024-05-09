@@ -62,7 +62,7 @@ yargs(hideBin(process.argv))
         },
     )
     .command(
-        "build-index <inPath> <outPath>",
+        "build-index <inPath> [outPath]",
         "Build an index from the directory of images",
         (yargs) => {
             return yargs
@@ -74,7 +74,6 @@ yargs(hideBin(process.argv))
                 .positional("outPath", {
                     describe: "The path where you want to write the index file",
                     type: "string",
-                    default: "index.html",
                 })
                 .check(({ inPath }) =>
                     check({

@@ -1,22 +1,24 @@
-import Psd, { Layer } from "@webtoon/psd";
 import fs from "fs";
 import pathlib from "path";
+
+import Psd, { Layer } from "@webtoon/psd";
+
+// Ours
+import { buildHTMLIndex } from "../common/html";
 import {
-    LayerInfo,
-    buildHTMLIndex,
-    isValidName,
-    parentNames,
-    parsePath,
     permutateLayers,
     traversePsd,
     writeComposite,
     writeLayer,
-} from "../shared";
+} from "../common/images";
+import { LayerInfo, isValidName, parentNames, parsePath } from "../common/names";
 
 export async function composite(inPath: string, outDir: string) {
     const layers: LayerInfo[] = [];
     const paths = fs.readdirSync(inPath);
-    for (const path of paths) {
+    for (let path of paths) {
+        path = pathlib.join(inPath, path);
+
         const layer = parsePath(path);
         if (layer !== null) {
             layers.push(layer);
@@ -36,12 +38,14 @@ export function getLayerName(layer: Layer) {
     return [...parentNames(layer), layer.name].join(" :: ");
 }
 
-export async function writeIndex(inDir: string, outPath: string) {
+export async function writeIndex(inDir: string, outPath?: string) {
     const paths = fs.readdirSync(inDir);
     const layers = paths
-        .map((path) => pathlib.join(".", inDir, path))
+        .map((path) => pathlib.join(".", path))
         .flatMap((path) => parsePath(path) ?? []);
     const html = buildHTMLIndex(layers);
+
+    outPath ??= pathlib.join(inDir, "index.html");
 
     fs.writeFileSync(outPath, html);
 }

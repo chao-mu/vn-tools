@@ -23,6 +23,7 @@
     "@types/pngjs": "^6.0.4",
     "@types/yargs": "^17.0.32",
     "@webtoon/psd": "^0.4.0",
+    "html-creator": "^0.7.2",
     "pngjs": "^7.0.0",
     "sharp": "^0.33.3",
     "yargs": "^17.7.2"
