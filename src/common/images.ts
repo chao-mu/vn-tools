@@ -1,12 +1,10 @@
 import fs from "fs";
-import pathlib from "path";
 
 import Psd, { type Group, type Layer, type Node } from "@webtoon/psd";
 
 import { PNG } from "pngjs";
 
 import sharp from "sharp";
-
 import { LayerInfo } from "./names";
 
 export function traversePsd({
@@ -62,46 +60,66 @@ function getLayersByCategory(layers: LayerInfo[]) {
     return layersByCategory;
 }
 
-export function buildLayerTree(layers: LayerInfo[]) {
-    layers.forEach((layer) => {
-        const segments = [layer.character, layer.posture, layer.attribute];
-    });
+type LayerTreePath = {
+    path: string;
+};
+
+type LayerTreeLayer = {
+    layer: LayerInfo;
+};
+
+type LayerTreeNode = LayerTreePath | LayerTreeLayer[];
+type LayerTreeLevelValue = LayerTreePath | LayerTreeLayer;
+type LayerTreeLevelValues = LayerTreeLevelValue[];
+
+interface LayerTree {
+    [key: string]: (string | LayerTree)[] | string;
 }
 
-export function permutateLayers(layers: LayerInfo[]) {
-    const layersByCategory = getLayersByCategory(layers);
+export function buildLayerTree(layers: LayerInfo[]): LayerTree {
+    const level: Record<string, LayerTreeLevelValues> = {};
+    for (const layer of layers) {
+        const { segments, path } = layer;
 
-    const combos: LayerInfo[][] = [];
-    const f = (consumedCategories: string[], acc: LayerInfo[]) => {
-        if (consumedCategories.length >= Object.keys(layersByCategory).length) {
-            combos.push(acc);
-            return;
+        const name = layer.segments.shift();
+        if (name === undefined) {
+            console.error(
+                "Internal error: Unexpected undefined when building layer tree",
+            );
+
+            return {};
         }
 
-        for (const [posture, layers] of Object.entries(layersByCategory)) {
-            if (consumedCategories.includes(posture)) {
-                continue;
-            }
+        level[name] ??= [] as [];
+        level[name].push(segments.length === 0 ? { path } : { layer });
+    }
 
-            for (const layer of layers) {
-                f([...consumedCategories, posture], acc.concat(layer));
-            }
+    const recurse = (nodes: LayerTreeLevelValues): (LayerTree | string)[] | string => {
+        const paths: string[] = [];
+        const layers: LayerInfo[] = [];
 
-            return;
+        for (const node of nodes) {
+            if ("path" in node) {
+                paths.push(node.path);
+            } else {
+                layers.push(node.layer);
+            }
         }
+
+        if (layers.length == 0 && paths.length == 1) {
+            return paths[0];
+        }
+
+        const subtree = buildLayerTree(layers);
+        return Object.keys(subtree).length > 0 ? [...paths, subtree] : paths;
     };
 
-    f([], []);
-
-    return combos;
+    return Object.fromEntries(
+        Object.entries(level).map(([name, nodes]) => [name, recurse(nodes)]),
+    );
 }
 
-export async function writeComposite(outDir: string, layers: LayerInfo[]) {
-    const outPath =
-        pathlib.join(outDir, layers.map((info) => info.attribute).join(" ")) + ".png";
-
-    console.log(`Rendering ${outPath}`);
-
+export async function writeComposite(layers: LayerInfo[], dest: string) {
     const backgroundLayer = layers.shift();
     if (!backgroundLayer) {
         throw new Error("Expected stack of layers to at least have one layer");
@@ -109,10 +127,14 @@ export async function writeComposite(outDir: string, layers: LayerInfo[]) {
 
     await sharp(backgroundLayer.path)
         .composite(layers.map((layer) => ({ input: layer.path, blend: "multiply" })))
-        .toFile(outPath);
+        .toFile(dest);
 }
 
-export function parentNames(node: Node): string[] {
+export function getLayerSegments(layer: Layer) {
+    return [...parentNames(layer), layer.name];
+}
+
+function parentNames(node: Node): string[] {
     const parent = node.parent;
     if (!parent || parent.type === "Psd") {
         return [];

@@ -5,12 +5,22 @@ import Psd from "@webtoon/psd";
 
 // Ours
 import { buildHTMLIndex } from "../common/html";
-import { getLayerSegments, traversePsd, writeLayer } from "../common/images";
-import { buildName, parsePath } from "../common/names";
+import {
+    getLayerSegments,
+    traversePsd,
+    writeComposite,
+    writeLayer,
+} from "../common/images";
+import { LayerInfo, buildName, parsePath } from "../common/names";
 
-export async function composite(layerPaths: string[], outPath: string) {
-    console.log(layerPaths);
-    console.log(outPath);
+export async function composite(layers: LayerInfo[], outPath: string) {
+    writeComposite(layers, outPath);
+}
+
+export async function suggest(show: string, paths: string[]) {
+    const layers = paths.flatMap((path) => parsePath(path));
+    console.log(layers);
+    console.log(show);
 }
 
 export async function writeIndex(inDir: string, outPath?: string) {
