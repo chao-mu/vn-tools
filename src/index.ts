@@ -27,6 +27,11 @@ function checkDir(value: string): string | null {
     return null;
 }
 
+function checkNotExists(value: string): string | null {
+    if (fs.existsSync(value)) {
+        return `Expected path to not be to an existing file to not exist. Got: ${value}`;
+    }
+}
 function checkFile(value: string): string | null {
     if (!fs.existsSync(value)) {
         return `Expected existing file, but it does not exist. Got: ${value}`;
@@ -112,29 +117,32 @@ yargs(hideBin(process.argv))
         },
     )
     .command(
-        "composite <inPath> <outPath>",
-        "Composite layers found in directory inPath and output combonations to outPath",
-        (yargs) => {
-            return yargs
-                .positional("inPath", {
-                    describe: "The path to the directory of layers",
+        "composite <out> [layers...]",
+        "Composite layers",
+        (yargs) =>
+            yargs
+                .option("out", {
+                    describe: "The file to write composite to",
                     demandOption: true,
                     type: "string",
                 })
-                .positional("outPath", {
-                    describe: "The path to the directory to write composites to",
-                    demandOption: true,
-                    type: "string",
-                })
-                .check(({ inPath, outPath }) =>
+                .array("layers")
+                .check(({ layers, out }) =>
                     check({
-                        inPath: checkDir(inPath),
-                        outPath: checkDir(outPath),
+                        out: checkNotExists(out),
+                        ...Object.fromEntries(
+                            (layers ?? []).map((path, idx) => [
+                                `path #${idx + 1}`,
+                                checkFile(path.toString()),
+                            ]),
+                        ),
                     }),
-                );
-        },
-        ({ inPath, outPath }) => {
-            composite(inPath, outPath);
+                ),
+        ({ layers, out }) => {
+            composite(
+                (layers ?? []).map((layer) => layer.toString()),
+                out,
+            );
         },
     )
     .demandCommand()
