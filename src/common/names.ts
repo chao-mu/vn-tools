@@ -1,48 +1,38 @@
 import pathlib from "path";
 
-import { type Node } from "@webtoon/psd";
-
 export type LayerInfo = {
-    posture: string;
-    character: string;
-    attribute: string;
+    segments: string[];
     path: string;
+    tag: string;
+    name: string;
+    attribs: string[];
+    stem: string;
+    isAll: boolean;
 };
-
-export function isValidName(name: string) {
-    return !!parseName(name);
-}
 
 export function parsePath(path: string): LayerInfo | null {
     const parsed = pathlib.parse(path);
-    const info = parseName(parsed.name);
-    if (!info) {
-        return null;
-    }
+    const segments = parsed.name.split(" :: ").map((seg) => seg.toLowerCase());
+    const [tag, ...attribs] = segments;
 
-    return { ...info, path };
+    return {
+        path,
+        attribs,
+        segments,
+        tag,
+        isAll: attribs.some((attr) => attr === "all" || attr.startsWith("all-")),
+        stem: attribs[attribs.length - 1],
+        name: buildName(segments),
+    };
 }
 
-function parseName(name: string) {
-    const [character, posture, attribute] = name
-        .split("::")
-        .map((s) => s.trim())
-        .filter((s) => s);
-
-    if (!character || !posture || !attribute) {
-        console.error(
-            "Expected group layer hierarchy to be: Character name -> Posture -> Attribute",
-        );
-    }
-
-    return { character, posture, attribute };
+export function buildName(segments: string[]) {
+    return segments.join(" :: ");
 }
 
-export function parentNames(node: Node): string[] {
-    const parent = node.parent;
-    if (!parent || parent.type === "Psd") {
-        return [];
-    }
-
-    return parentNames(parent).concat([parent.name]);
+export function hasOverlap(
+    a: { tag: string; attribs: string[] },
+    b: { tag: string; attribs: string[] },
+) {
+    return a.tag === b.tag && a.attribs.some((attr) => b.attribs.includes(attr));
 }

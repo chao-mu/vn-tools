@@ -2,7 +2,8 @@ import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
 
 import fs from "fs";
-import { composite, extract, inspect, writeIndex } from "./api/cli";
+import { composite, extract, inspect, suggest, writeIndex } from "./api/cli";
+import { parsePath } from "./common/names";
 
 function check(checkResults: Record<string, string | null>) {
     for (const [name, reason] of Object.entries(checkResults)) {
@@ -31,7 +32,23 @@ function checkNotExists(value: string): string | null {
     if (fs.existsSync(value)) {
         return `Expected path to not be to an existing file to not exist. Got: ${value}`;
     }
+
+    return null;
 }
+
+function checkLayerFile(value: string): string | null {
+    const err = checkFile(value);
+    if (err !== null) {
+        return err;
+    }
+
+    if (parsePath(value) === null) {
+        return `Expected valid layer name in path. Got: ${value}`;
+    }
+
+    return null;
+}
+
 function checkFile(value: string): string | null {
     if (!fs.existsSync(value)) {
         return `Expected existing file, but it does not exist. Got: ${value}`;
@@ -117,6 +134,34 @@ yargs(hideBin(process.argv))
         },
     )
     .command(
+        "suggest <show> [layers...]",
+        "Suggest layer combinations",
+        (yargs) =>
+            yargs
+                .option("show", {
+                    describe: "Show statement",
+                    demandOption: true,
+                    type: "string",
+                })
+                .array("layers")
+                .check(({ layers }) =>
+                    check(
+                        Object.fromEntries(
+                            (layers ?? []).map((path, idx) => [
+                                `path #${idx + 1}`,
+                                checkFile(path.toString()),
+                            ]),
+                        ),
+                    ),
+                ),
+        ({ layers, show }) => {
+            suggest(
+                show,
+                (layers ?? []).map((layer) => layer.toString()),
+            );
+        },
+    )
+    .command(
         "composite <out> [layers...]",
         "Composite layers",
         (yargs) =>
@@ -133,14 +178,14 @@ yargs(hideBin(process.argv))
                         ...Object.fromEntries(
                             (layers ?? []).map((path, idx) => [
                                 `path #${idx + 1}`,
-                                checkFile(path.toString()),
+                                checkLayerFile(path.toString()),
                             ]),
                         ),
                     }),
                 ),
         ({ layers, out }) => {
             composite(
-                (layers ?? []).map((layer) => layer.toString()),
+                (layers ?? []).map((layer) => parsePath(layer.toString())!),
                 out,
             );
         },
