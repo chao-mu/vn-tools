@@ -21,10 +21,14 @@
   },
   "dependencies": {
     "@types/pngjs": "^6.0.4",
+    "@types/react": "^18.3.2",
+    "@types/react-dom": "^18.3.0",
     "@types/yargs": "^17.0.32",
     "@webtoon/psd": "^0.4.0",
     "html-creator": "^0.7.2",
     "pngjs": "^7.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "sharp": "^0.33.3",
     "yargs": "^17.7.2"
   }

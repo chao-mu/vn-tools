@@ -50,16 +50,6 @@ export async function writeLayer(outPath: string, layer: Layer) {
     png.pack().pipe(fs.createWriteStream(outPath));
 }
 
-function getLayersByCategory(layers: LayerInfo[]) {
-    const layersByCategory: Record<string, LayerInfo[]> = {};
-    for (const info of layers) {
-        const { posture } = info;
-        layersByCategory[posture] = (layersByCategory[posture] ?? []).concat(info);
-    }
-
-    return layersByCategory;
-}
-
 type LayerTreePath = {
     path: string;
 };
@@ -119,14 +109,14 @@ export function buildLayerTree(layers: LayerInfo[]): LayerTree {
     );
 }
 
-export async function writeComposite(layers: LayerInfo[], dest: string) {
-    const backgroundLayer = layers.shift();
+export async function writeComposite(paths: string[], dest: string) {
+    const backgroundLayer = paths.shift();
     if (!backgroundLayer) {
         throw new Error("Expected stack of layers to at least have one layer");
     }
 
-    await sharp(backgroundLayer.path)
-        .composite(layers.map((layer) => ({ input: layer.path, blend: "multiply" })))
+    await sharp(backgroundLayer)
+        .composite(paths.map((path) => ({ input: path, blend: "over" })))
         .toFile(dest);
 }
 

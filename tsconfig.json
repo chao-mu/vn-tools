@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "esnext",
+    "jsx": "react-jsx",
     "allowJs": true,
     "removeComments": true,
     "resolveJsonModule": true,

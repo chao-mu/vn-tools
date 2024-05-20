@@ -6,28 +6,66 @@ export type LayerInfo = {
     tag: string;
     name: string;
     attribs: string[];
-    stem: string;
-    isAll: boolean;
+    leaf: string;
+    order: number;
+    target: string | undefined;
 };
 
+const SectionSep = "__";
+
+function isAllAttr(attr: string): boolean {
+    return !!attr.match(/^(all|all[-_]\d+)$/i);
+}
+
 export function parsePath(path: string): LayerInfo | null {
-    const parsed = pathlib.parse(path);
-    const segments = parsed.name.split(" :: ").map((seg) => seg.toLowerCase());
+    const { name: fileName } = pathlib.parse(path);
+    const [segmentSection, orderSection] = fileName.split(SectionSep);
+
+    const order = Number(orderSection);
+
+    const segments = segmentSection
+        .split(/\s*::\s*/)
+        .map((seg) => seg.toLowerCase())
+        .map((seg) => seg.replaceAll(/\s+/g, "_"));
     const [tag, ...attribs] = segments;
+
+    const lastAllIndex = attribs.findLastIndex((attr) => isAllAttr(attr));
 
     return {
         path,
         attribs,
         segments,
         tag,
-        isAll: attribs.some((attr) => attr === "all" || attr.startsWith("all-")),
-        stem: attribs[attribs.length - 1],
-        name: buildName(segments),
+        order,
+        target: attribs[lastAllIndex - 1],
+        leaf: attribs[attribs.length - 1],
+        name: buildName(segments, order),
     };
 }
 
-export function buildName(segments: string[]) {
-    return segments.join(" :: ");
+export const diffLayers = (a: LayerInfo[], b: LayerInfo[]) => {
+    const aPaths = new Set(a.map(({ path }) => path));
+
+    for (const { path } of b) {
+        if (aPaths.has(path)) {
+            continue;
+        } else {
+            console.log(`+ ${path}`);
+        }
+    }
+
+    const bPaths = new Set(b.map(({ path }) => path));
+    for (const { path } of a) {
+        if (bPaths.has(path)) {
+            continue;
+        } else {
+            console.log(`- ${path}`);
+        }
+    }
+};
+
+export function buildName(segments: string[], order: number) {
+    return [segments.join(" :: "), order].join(SectionSep);
 }
 
 export function hasOverlap(

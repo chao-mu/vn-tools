@@ -2,8 +2,8 @@ import { hideBin } from "yargs/helpers";
 import yargs from "yargs/yargs";
 
 import fs from "fs";
-import { composite, extract, inspect, suggest, writeIndex } from "./api/cli";
 import { parsePath } from "./common/names";
+import { buildWeb, composite, extract, inspect, show } from "./server/cli";
 
 function check(checkResults: Record<string, string | null>) {
     for (const [name, reason] of Object.entries(checkResults)) {
@@ -22,7 +22,7 @@ function checkDir(value: string): string | null {
 
     const stat = fs.lstatSync(value);
     if (!stat.isDirectory()) {
-        return "Path does not lead to a directory.";
+        return `Path does not lead to a directory. Got: ${value}.`;
     }
 
     return null;
@@ -84,27 +84,33 @@ yargs(hideBin(process.argv))
         },
     )
     .command(
-        "build-index <inPath> [outPath]",
-        "Build an index from the directory of images",
+        "build-web [assetsDir] [buildDir]",
+        "Build the web app given the assets directory",
         (yargs) => {
             return yargs
-                .positional("inPath", {
-                    describe: "The images directory",
-                    demandOption: true,
+                .positional("assetsDir", {
+                    describe: "The directory of asset files to support build",
+                    default: "assets/",
                     type: "string",
                 })
-                .positional("outPath", {
-                    describe: "The path where you want to write the index file",
+                .positional("buildDir", {
+                    describe: "The directory of files to serve",
+                    default: "dist/",
                     type: "string",
                 })
-                .check(({ inPath }) =>
+                .option("skipExtract", {
+                    describe: "Image output",
+                    type: "boolean",
+                })
+                .check(({ buildDir }) =>
                     check({
-                        inPath: checkDir(inPath),
+                        buildDir: checkDir(buildDir),
+                        assetsDir: checkDir(buildDir),
                     }),
                 );
         },
-        ({ inPath, outPath }) => {
-            writeIndex(inPath, outPath);
+        ({ assetsDir, buildDir, skipExtract }) => {
+            buildWeb(assetsDir, buildDir, { skipExtract });
         },
     )
     .command(
@@ -134,36 +140,39 @@ yargs(hideBin(process.argv))
         },
     )
     .command(
-        "suggest <show> [layers...]",
-        "Suggest layer combinations",
+        "show <inDir> <tag> [attribs...]",
+        "Produce a composite based on tag and attributes",
         (yargs) =>
             yargs
-                .option("show", {
-                    describe: "Show statement",
+                .positional("inDir", {
+                    describe: "Directory to read layers from",
                     demandOption: true,
                     type: "string",
                 })
-                .array("layers")
-                .check(({ layers }) =>
-                    check(
-                        Object.fromEntries(
-                            (layers ?? []).map((path, idx) => [
-                                `path #${idx + 1}`,
-                                checkFile(path.toString()),
-                            ]),
-                        ),
-                    ),
+                .positional("tag", {
+                    describe: "Image tag",
+                    demandOption: true,
+                    type: "string",
+                })
+                .option("out", {
+                    describe: "Image output",
+                    type: "string",
+                })
+                .array("attribs")
+                .check(({ inDir, out }) =>
+                    check({
+                        inDir: checkDir(inDir),
+                        out: out ? checkNotExists(out) : null,
+                    }),
                 ),
-        ({ layers, show }) => {
-            suggest(
-                show,
-                (layers ?? []).map((layer) => layer.toString()),
-            );
+        ({ inDir, tag, attribs, out }) => {
+            const parsedAttribs = (attribs ?? []).map((attr) => attr.toString());
+            show(inDir, tag, parsedAttribs, out);
         },
     )
     .command(
         "composite <out> [layers...]",
-        "Composite layers",
+        "Composite images",
         (yargs) =>
             yargs
                 .option("out", {
@@ -178,14 +187,14 @@ yargs(hideBin(process.argv))
                         ...Object.fromEntries(
                             (layers ?? []).map((path, idx) => [
                                 `path #${idx + 1}`,
-                                checkLayerFile(path.toString()),
+                                checkFile(path.toString()),
                             ]),
                         ),
                     }),
                 ),
         ({ layers, out }) => {
             composite(
-                (layers ?? []).map((layer) => parsePath(layer.toString())!),
+                (layers ?? []).map((layer) => layer.toString()),
                 out,
             );
         },

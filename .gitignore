@@ -131,3 +131,6 @@ dist
 
 # Ignore
 ignore
+
+# Ignore photoshop files
+/assets/*.psd
